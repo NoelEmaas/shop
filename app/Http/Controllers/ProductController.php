@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
 
 class ProductController extends Controller
 {
@@ -14,7 +16,18 @@ class ProductController extends Controller
      */
     public function index()
     {
-        return view('shop');
+        $user = Auth::user();
+        $admin = false;
+        $products = Product::all();
+
+        if ($user != null) {
+            if ($user->isAdmin) {
+                $admin = true;
+                $products = Product::where('user_id', '=', $user->id)->get();
+            }
+        }
+
+        return view('shop', ['products' => $products, 'admin' => $admin]);
     }
 
     /**
@@ -24,7 +37,7 @@ class ProductController extends Controller
      */
     public function create()
     {
-        //
+        return view('addProduct');
     }
 
     /**
@@ -35,7 +48,16 @@ class ProductController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $filename = $request->img->getClientOriginalName();
+        $request->img->move(public_path('img'), $filename);
+
+        $product = Product::create([
+            'product_name' => $request['product_name'],
+            'price' => $request['product_price'],
+            'img' => $filename,
+            'user_id' => Auth::id()
+        ]);
+        return redirect('shop');
     }
 
     /**
@@ -55,9 +77,10 @@ class ProductController extends Controller
      * @param  \App\Models\Product  $product
      * @return \Illuminate\Http\Response
      */
-    public function edit(Product $product)
+    public function edit($id)
     {
-        //
+        $product = Product::find($id);
+        return view('editProduct', ['product' => $product]);
     }
 
     /**
@@ -67,9 +90,20 @@ class ProductController extends Controller
      * @param  \App\Models\Product  $product
      * @return \Illuminate\Http\Response
      */
-    public function update(Request $request, Product $product)
+    public function update(Request $request, $id)
     {
-        //
+        $product = Product::find($id);
+        if ($request->hasFile('img')) {
+            $filename = $request->photo->getClientOriginalName();
+            $request->img->move(public_path('img'), $filename);
+        } else {
+            $filename = $product->img;
+        }
+        $product->product_name = $request->product_name;
+        $product->price = $request->product_price;
+        $product->img = $filename;
+        $product->save();
+        return redirect("shop");
     }
 
     /**
@@ -78,8 +112,10 @@ class ProductController extends Controller
      * @param  \App\Models\Product  $product
      * @return \Illuminate\Http\Response
      */
-    public function destroy(Product $product)
+    public function destroy($id)
     {
-        //
+        $product = Product::find($id);
+        $product->delete();
+        return redirect("shop");
     }
 }
